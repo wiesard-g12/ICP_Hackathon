@@ -114,5 +114,3 @@ We are developers and domain experts passionate about:
 
 ---
 
-## 🗂️ Repository Structure
-
