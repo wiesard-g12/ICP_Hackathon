@@ -1,73 +1,116 @@
-# Welcome to your Lovable project
+# 💼 CoInvest – Decentralised Co-Investment Platform on ICP
 
-## Project info
+Welcome to **CoInvest**, a platform that democratizes access to real-world asset investments for young Indian investors. Powered by the **Internet Computer (ICP)** and governed through a **DAO**, CoInvest enables fractional ownership, automated income distribution, and peer-to-peer liquidity – all on-chain.
 
-**URL**: https://lovable.dev/projects/c4714724-26d1-4da8-bb4b-5abc6bb717c9
+---
 
-## How can I edit this code?
+## 🧠 Problem We Solve
 
-There are several ways of editing your application.
+Traditional real estate investing in India is:
+- ❌ Expensive (minimums in crores)
+- ❌ Centralised and opaque
+- ❌ Illiquid and passive
 
-**Use Lovable**
+Platforms like REITs or crowdfunding offer limited control and no transparency. CoInvest fixes this by building **a truly decentralized, programmable, and democratic co-investment ecosystem**.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/c4714724-26d1-4da8-bb4b-5abc6bb717c9) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🚀 Our Solution
 
-**Use your preferred IDE**
+**CoInvest is built on ICP** using canisters, ICRC token standards, and DAO-based governance.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Key Features:
+- 🗳️ **DAO-Governed Decisions**: Vote on asset acquisitions, upgrades, or sales.
+- 🪙 **ICRC Tokenized Ownership**: Own fractions of property as NFTs or fungible tokens.
+- ⚙️ **Fully On-Chain Logic**: Rent distribution, budget approvals, asset management – all via smart contracts.
+- 🔐 **Chain-Key ECDSA**: Send BTC/ETH directly from canisters.
+- 🌐 **On-Chain Frontend**: Hosted on ICP with no reliance on Web2 servers.
+- 🔗 **HTTPS Outcalls for Oracles**: Real-time property data with external API integration.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 🛠️ Tech Stack
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Languages:
+- 🧠 Motoko, Rust
+- 🧱 HTML, CSS, JavaScript (for frontend)
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### ICP-Specific:
+- 📦 Canisters (Smart Contracts)
+- 💠 ICRC-1 / ICRC-7 Tokens
+- 🧰 Internet Identity (II) Authentication
+- 🔑 Chain-Key ECDSA (BTC/ETH signing)
+- 🌍 HTTPS Outcalls (for Oracles)
 
-# Step 3: Install the necessary dependencies.
-npm i
+### Tools:
+- ICP SDK, DFX CLI
+- GitHub Actions for CI/CD
+- Fleek / Stoic Wallet
+- VS Code, Vessel, React
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+---
 
-**Edit a file directly in GitHub**
+## 🌐 How It Works (User Flow)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+1. **Join & Contribute**  
+   Create an Internet Identity and commit ICP/ckBTC/ckETH to the DAO. Receive governance tokens.
 
-**Use GitHub Codespaces**
+2. **Vote on Assets**  
+   Review asset proposals on-chain and vote using your stake.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+3. **Asset Purchase & Tokenization**  
+   Canisters execute the purchase. Ownership is issued as fractional tokens.
 
-## What technologies are used for this project?
+4. **Earn & Decide**  
+   Rental/dividend income is split and distributed on-chain. DAO votes on upgrades or sale.
 
-This project is built with:
+---
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🎯 Use Cases
 
-## How can I deploy this project?
+- 🏠 Rental Flats – Collective ownership and rent sharing
+- 🌾 Farmland – Lease to farmers and share profits
+- 🖼️ Art & Collectibles – Monetize exhibits and co-own assets
+- 💼 Diversified Portfolios – Mix residential, commercial, farmland
+- 🔄 P2P Token Trades – Trade fractions freely 24/7
 
-Simply open [Lovable](https://lovable.dev/projects/c4714724-26d1-4da8-bb4b-5abc6bb717c9) and click on Share -> Publish.
+---
 
-## Can I connect a custom domain to my Lovable project?
+## 💰 Monetization Strategy
 
-Yes, you can!
+- 🔄 **Settlement Fees**: ~0.5–1% on buy/sell or transfer transactions
+- 🏗️ **Management Fees**: ~0.5% AUM/year for upkeep
+- 📋 **Listing Fees**: One-time charges for asset providers
+- 🌟 **Premium Services**: Analytics, reports, concierge offerings
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+---
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## 📈 Why Now?
+
+- 🇮🇳 India's 2024 REIT reforms lower the barrier for retail investors  
+- 🧠 Gen-Z wants diversified, digital-first investments  
+- 📡 ICP tech stack is ready (chain-key ECDSA, HTTPS outcalls, low fees)  
+- 🛠️ Hackathon MVP is feasible in 8–12 weeks with core modules: governance, tokens, UI  
+
+---
+
+## 👥 Meet the Team
+
+We are developers and domain experts passionate about:
+- 🏠 Indian real estate finance
+- 💻 Blockchain & Web3 development
+- 📊 Tokenization and DAO infrastructure
+- 🇮🇳 India-focused, compliance-aware innovation
+
+---
+
+## 🧪 MVP Hackathon Scope
+
+- ✅ Governance Canister (Voting Logic)
+- ✅ Token Canister (ICRC-1/7)
+- ✅ On-Chain UI (ICP native frontend)
+- ✅ Rental Distribution Simulation
+- ✅ Asset Proposal + Voting Demo
+
+---
+
