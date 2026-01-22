@@ -1,0 +1,216 @@
+import pandas as pd
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from torch.cuda.amp import GradScaler, autocast  # Mixed Precision
+import gc
+import warnings
+
+warnings.filterwarnings('ignore')
+
+# === 1. Enhanced Architecture with Embeddings ===
+class ResNetTabularEnhanced(nn.Module):
+    def __init__(self, num_cont_features, num_symbols, embed_dim=16, hidden_dim=256, dropout=0.3):
+        super(ResNetTabularEnhanced, self).__init__()
+        
+        # 1. Embedding Layer for Symbol ID
+        self.symbol_embedding = nn.Embedding(num_symbols + 1, embed_dim)
+        
+        # 2. Input Layer (Continuous + Embedding)
+        input_dim = num_cont_features + embed_dim
+        self.bn0 = nn.BatchNorm1d(input_dim)
+        self.input_layer = nn.Linear(input_dim, hidden_dim)
+        
+        # 3. Residual Block 1
+        self.bn1 = nn.BatchNorm1d(hidden_dim)
+        self.dense1 = nn.Linear(hidden_dim, hidden_dim)
+        self.act = nn.GELU()  # GELU often beats ReLU for Transformers/Quant
+        self.drop = nn.Dropout(dropout)
+        
+        # 4. Residual Block 2
+        self.bn2 = nn.BatchNorm1d(hidden_dim)
+        self.dense2 = nn.Linear(hidden_dim, hidden_dim)
+        
+        # 5. Output Head
+        self.bn3 = nn.BatchNorm1d(hidden_dim)
+        self.output_layer = nn.Linear(hidden_dim, 1)
+        
+    def forward(self, x_cont, x_cat):
+        # Handle Embeddings
+        x_embed = self.symbol_embedding(x_cat).squeeze(1) # [Batch, Embed_Dim]
+        
+        # Concatenate Continuous + Embedded
+        x = torch.cat([x_cont, x_embed], dim=1)
+        
+        # Standard Feed Forward
+        x = self.bn0(x)
+        x = self.input_layer(x)
+        
+        # Block 1 (Skip Connection)
+        residual = x
+        out = self.bn1(x)
+        out = self.act(out)
+        out = self.drop(out)
+        out = self.dense1(out)
+        x = x + out
+        
+        # Block 2 (Skip Connection)
+        residual = x
+        out = self.bn2(x)
+        out = self.act(out)
+        out = self.drop(out)
+        out = self.dense2(out)
+        x = x + out
+        
+        # Output
+        x = self.bn3(x)
+        x = self.act(x)
+        return self.output_layer(x)
+
+# === 2. The Pipeline ===
+class AdvancedQuantPipeline:
+    def __init__(self, train_path, test_path):
+        self.train_path = train_path
+        self.test_path = test_path
+        self.scaler = StandardScaler()
+        self.le = LabelEncoder()
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print(f"Compute Device: {self.device}")
+        
+    def load_and_engineer(self, path, is_train=True):
+        print(f"Loading {path}...")
+        df = pd.read_csv(path)
+        
+        # --- Feature Engineering ---
+        feature_cols = [c for c in df.columns if c.startswith('f') and c[1:].isdigit()]
+        top_cols = feature_cols[:5]
+        
+        for col in top_cols:
+            df[f'{col}_ret'] = df.groupby('symbol_id')[col].diff().fillna(0)
+            # Log Return (More stable for NN)
+            df[f'{col}_log_ret'] = np.log1p(np.abs(df[f'{col}_ret'])) * np.sign(df[f'{col}_ret'])
+        
+        # Normalize Time
+        max_t = df['time_id'].max()
+        df['time_norm'] = df['time_id'] / max_t
+        
+        # Handle Symbol ID (Categorical)
+        if is_train:
+            # Fit Label Encoder on all known symbols
+            df['symbol_idx'] = self.le.fit_transform(df['symbol_id'].astype(str))
+            self.num_symbols = len(self.le.classes_)
+        else:
+            # Handle unseen symbols in test
+            known_mask = df['symbol_id'].astype(str).isin(self.le.classes_)
+            df.loc[~known_mask, 'symbol_idx'] = 0 # Map unknown to 0
+            df.loc[known_mask, 'symbol_idx'] = self.le.transform(df.loc[known_mask, 'symbol_id'].astype(str))
+            
+        # Select Continuous Features
+        exclude = ['Id', 'date_id', 'time_id', 'symbol_id', 'y', 'symbol_idx']
+        cont_features = [c for c in df.columns if c not in exclude]
+        
+        # Sanitize
+        df[cont_features] = df[cont_features].replace([np.inf, -np.inf], np.nan).fillna(0)
+        
+        # Scaling
+        if is_train:
+            self.train_features = cont_features
+            X_cont = self.scaler.fit_transform(df[cont_features].values.astype(np.float32))
+            y = df['y'].values.astype(np.float32)
+            X_cat = df['symbol_idx'].values.astype(np.int64)
+            return X_cont, X_cat, y, df
+        else:
+            X_cont = self.scaler.transform(df[self.train_features].values.astype(np.float32))
+            X_cat = df['symbol_idx'].values.astype(np.int64)
+            return X_cont, X_cat, df
+
+    def train_model(self):
+        # 1. Load Data
+        X_cont, X_cat, y, _ = self.load_and_engineer(self.train_path, is_train=True)
+        
+        # Tensors
+        dataset = TensorDataset(
+            torch.tensor(X_cont), 
+            torch.tensor(X_cat).unsqueeze(1),
+            torch.tensor(y).unsqueeze(1)
+        )
+        
+        # Batch Size 4096 is optimal for AMP on RTX 3050
+        loader = DataLoader(dataset, batch_size=4096, shuffle=True, pin_memory=True, num_workers=0)
+        
+        # 2. Init Model
+        self.model = ResNetTabularEnhanced(
+            num_cont_features=X_cont.shape[1],
+            num_symbols=self.num_symbols
+        ).to(self.device)
+        
+        # Optimizer & Scheduler
+        optimizer = optim.AdamW(self.model.parameters(), lr=0.001, weight_decay=1e-5)
+        scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5) # Restarts every 5 epochs
+        criterion = nn.MSELoss()
+        scaler = GradScaler() # For Mixed Precision
+        
+        # 3. Training Loop with AMP
+        print("\nStarting Mixed Precision Training...")
+        self.model.train()
+        
+        epochs = 15
+        for epoch in range(epochs):
+            total_loss = 0
+            for batch_cont, batch_cat, batch_y in loader:
+                batch_cont = batch_cont.to(self.device)
+                batch_cat = batch_cat.to(self.device)
+                batch_y = batch_y.to(self.device)
+                
+                optimizer.zero_grad()
+                
+                # AutoCast context for FP16
+                with autocast():
+                    preds = self.model(batch_cont, batch_cat)
+                    loss = criterion(preds, batch_y)
+                
+                # Scale Gradients
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+                scheduler.step()
+                
+                total_loss += loss.item()
+            
+            avg_loss = total_loss / len(loader)
+            print(f"Epoch {epoch+1}/{epochs} | Loss: {avg_loss:.6f} | LR: {scheduler.get_last_lr()[0]:.6f}")
+            
+        return self
+
+    def predict(self):
+        self.model.eval()
+        X_cont, X_cat, df_test = self.load_and_engineer(self.test_path, is_train=False)
+        
+        t_cont = torch.tensor(X_cont).to(self.device)
+        t_cat = torch.tensor(X_cat).unsqueeze(1).to(self.device)
+        
+        preds = []
+        batch_size = 8192 # Higher batch size for inference
+        
+        with torch.no_grad():
+            for i in range(0, len(t_cont), batch_size):
+                b_cont = t_cont[i:i+batch_size]
+                b_cat = t_cat[i:i+batch_size]
+                
+                # AMP inference
+                with autocast():
+                    p = self.model(b_cont, b_cat)
+                
+                preds.append(p.cpu().numpy())
+                
+        final_preds = np.concatenate(preds).flatten()
+        submission = pd.DataFrame({'Id': df_test['Id'], 'y': final_preds})
+        submission.to_csv('submission_nn_enhanced.csv', index=False)
+        print("✓ Predictions saved.")
+
+if __name__ == "__main__":
+    pipeline = AdvancedQuantPipeline('train.csv', 'test.csv')
+    pipeline.train_model().predict()
